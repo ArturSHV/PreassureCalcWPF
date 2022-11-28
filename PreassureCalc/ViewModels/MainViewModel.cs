@@ -182,7 +182,7 @@ namespace PreassureCalc.ViewModels
         /// </summary>
         private async void Calculate()
         {
-            InitialDataProgressBar();
+            maxProgress = wells.Count;
             ChangeButtonCalculate();
 
             await Task.Run(() =>
