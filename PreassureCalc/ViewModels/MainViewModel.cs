@@ -6,6 +6,7 @@ using System;
 using System.Collections.ObjectModel;
 using System.Data.Entity;
 using System.Linq;
+using System.Threading;
 using System.Threading.Tasks;
 using System.Windows;
 using System.Windows.Input;
@@ -26,6 +27,7 @@ namespace PreassureCalc.ViewModels
         public double progressBar { get; set; }
         public double maxProgress { get; set; } 
         public string selectedWell { get; set; }
+        object locker = new object();
 
         private const float g = 9.78f;
         public ObservableCollection<Wells> wells { get; set; }
@@ -182,12 +184,11 @@ namespace PreassureCalc.ViewModels
         /// </summary>
         private async void Calculate()
         {
-            maxProgress = wells.Count;
             ChangeButtonCalculate();
 
             await Task.Run(() =>
             {
-                Parallel.For(0, wells.Count, new ParallelOptions() { MaxDegreeOfParallelism = 5 },
+                Parallel.For(0, wells.Count, new ParallelOptions() { MaxDegreeOfParallelism = 3 },
                 (i, state) =>
                 {
                     if (nameButtonCalculate == "Рассчитать")
@@ -212,16 +213,21 @@ namespace PreassureCalc.ViewModels
                             wells[i].preassure = 0;
                             wells[i].calculatedDepth = 0;
                         }
-                        progressBar++;
+
+                        lock(locker)
+                        {
+                            progressBar++;
+                        }
+                        Thread.Sleep(300);
                     }
                 });
-
-                if (progressBar == maxProgress)
-                    ChangeButtonCalculate();
-
-                InitialDataProgressBar();
             });
-            
+
+            if (progressBar >= maxProgress)
+                ChangeButtonCalculate();
+
+            InitialDataProgressBar();
+
             await db.SaveChangesAsync();
 
             wells = ObservableToList(db.Wells);
