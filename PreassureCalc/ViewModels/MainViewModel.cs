@@ -182,6 +182,7 @@ namespace PreassureCalc.ViewModels
         /// </summary>
         private async void Calculate()
         {
+            InitialDataProgressBar();
             ChangeButtonCalculate();
 
             await Task.Run(() =>
