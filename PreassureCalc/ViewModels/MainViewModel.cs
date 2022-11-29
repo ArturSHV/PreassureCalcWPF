@@ -1,5 +1,4 @@
-﻿using PreassureCalc.Entity;
-using PreassureCalc.Models;
+﻿using PreassureCalc.Models;
 using PropertyChanged;
 using ScottPlot;
 using System;
@@ -79,23 +78,14 @@ namespace PreassureCalc.ViewModels
         {
             if (well == null)
                 MessageBox.Show("Выберите скважину");
+            else if ((Preassure.Count == 0) || (Depth.Count==0))
+                MessageBox.Show("Сначала произведите расчет");
             else
             {
                 action();
             }
         }
 
-        /// <summary>
-        /// Валидация количества шагов
-        /// </summary>
-        /// <param name="action"></param>
-        private void StepCountValidation(Action action)
-        {
-            if (stepCount <= 0)
-                MessageBox.Show("Кол-во шагов разбиения должно быть больше 0");
-            else
-                action();
-        }
 
         /// <summary>
         /// Метод создания массива данных для графика
