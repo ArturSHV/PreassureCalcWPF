@@ -3,6 +3,7 @@ using PreassureCalc.Models;
 using PropertyChanged;
 using ScottPlot;
 using System;
+using System.Collections.Generic;
 using System.Collections.ObjectModel;
 using System.Data.Entity;
 using System.Linq;
@@ -27,6 +28,10 @@ namespace PreassureCalc.ViewModels
         public double progressBar { get; set; }
         public double maxProgress { get; set; } 
         public string selectedWell { get; set; }
+
+        public Dictionary<string,double[]> Preassure { get; set; }
+        public Dictionary<string, double[]> Depth { get; set; }
+
         object locker = new object();
 
         private const float g = 9.78f;
@@ -38,6 +43,8 @@ namespace PreassureCalc.ViewModels
         {
             nameButtonCalculate = "Рассчитать";
             graph = new WpfPlot();
+            Preassure = new Dictionary<string, double[]>();
+            Depth = new Dictionary<string, double[]>();
 
             wells = ObservableToList(db.Wells);
             InitialDataProgressBar();
@@ -49,22 +56,32 @@ namespace PreassureCalc.ViewModels
         /// <param name="well"></param>
         private void GetGraph(Wells well)
         {
+            double[] preassure;
+            double[] depth;
+
+            Preassure.TryGetValue(well.numberWell, out preassure);
+            Depth.TryGetValue(well.numberWell, out depth);
+
+            graph = new WpfPlot();
+            graph.Plot.AddScatter(depth, preassure);
+            graph.Plot.XLabel("Глубина, м");
+            graph.Plot.YLabel("Давление, кПа");
+
+            graph.Refresh();
+        }
+
+        /// <summary>
+        /// Валидация перед показом графика
+        /// </summary>
+        /// <param name="well"></param>
+        /// <param name="action"></param>
+        private void GetGraphValidation(Wells well, Action action)
+        {
             if (well == null)
                 MessageBox.Show("Выберите скважину");
             else
             {
-                double[] Preassure = new double[stepCount];
-                double[] Depth = new double[stepCount];
-
-                Preassure = ArrayCreator(Preassure, well.preassure);
-                Depth = ArrayCreator(Depth, well.calculatedDepth);
-
-                graph = new WpfPlot();
-                graph.Plot.AddScatter(Depth, Preassure);
-                graph.Plot.XLabel("Глубина, м");
-                graph.Plot.YLabel("Давление, кПа");
-
-                graph.Refresh();
+                action();
             }
         }
 
@@ -122,7 +139,7 @@ namespace PreassureCalc.ViewModels
                 return new RelayCommand(obj =>
                 {
                     Wells well = (Wells)obj;
-                    StepCountValidation(() => GetGraph(well));
+                    GetGraphValidation(well, () => GetGraph(well));
                 });
             }
         }
@@ -175,7 +192,9 @@ namespace PreassureCalc.ViewModels
 
         private void ValidateCalculation(Action action)
         {
-            if (wells.Count != 0)
+            if (stepCount <= 0)
+                MessageBox.Show("Кол-во шагов разбиения должно быть больше 0");
+            else if (wells.Count != 0)
                 action();
         }
 
@@ -185,7 +204,8 @@ namespace PreassureCalc.ViewModels
         private async void Calculate()
         {
             ChangeButtonCalculate();
-
+            Preassure.Clear();
+            Depth.Clear();
             await Task.Run(() =>
             {
                 Parallel.For(0, wells.Count, new ParallelOptions() { MaxDegreeOfParallelism = 3 },
@@ -213,8 +233,16 @@ namespace PreassureCalc.ViewModels
                             wells[i].preassure = 0;
                             wells[i].calculatedDepth = 0;
                         }
+                        
+                            double[] Preassure = new double[stepCount];
+                            Preassure = ArrayCreator(Preassure, wells[i].preassure);
+                            this.Preassure.Add(wells[i].numberWell, Preassure);
+                       
+                            double[] Depth = new double[stepCount];
+                            Depth = ArrayCreator(Depth, wells[i].calculatedDepth);
+                            this.Depth.Add(wells[i].numberWell, Depth);
 
-                        lock(locker)
+                        lock (locker)
                         {
                             progressBar++;
                         }
